@@ -7,8 +7,7 @@
 <style>
   :root{
     --bg:#0b0f14; --card:#121826; --panel:#0b1220; --line:#263042;
-    --text:#e5e7eb; --muted:#9aa4b2; --accent:#f97316; --red:#ef4444;
-    --ok:#22c55e;
+    --text:#e5e7eb; --muted:#9aa4b2; --accent:#f97316; --red:#ef4444; --ok:#22c55e;
   }
   *{box-sizing:border-box}
   body{margin:0;background:linear-gradient(180deg,#070a10,#0b0f14);color:var(--text);
@@ -38,7 +37,6 @@
     padding:10px;display:flex;gap:10px;align-items:center
   }
   .pick input{width:auto;transform:scale(1.1)}
-  .pick b{font-size:14px}
 
   /* Game layout */
   .grid{display:grid;grid-template-columns:1fr 430px;gap:14px}
@@ -61,6 +59,7 @@
 
   /* Teams */
   .teams{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  @media(max-width:520px){.teams{grid-template-columns:1fr}}
   .team{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:10px}
   .team.active{outline:2px solid rgba(249,115,22,.55)}
   .team h4{margin:0 0 6px;font-size:14px}
@@ -74,7 +73,7 @@
 
   /* Modal */
   .modalBack{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:14px;z-index:50}
-  .modal{max-width:800px;width:100%;background:rgba(18,24,38,.98);border:1px solid var(--line);border-radius:18px;padding:14px}
+  .modal{max-width:820px;width:100%;background:rgba(18,24,38,.98);border:1px solid var(--line);border-radius:18px;padding:14px}
   .modalTop{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
   .qCat{color:var(--muted);font-size:13px}
   .qText{font-size:20px;line-height:1.8;white-space:pre-wrap;margin-top:10px}
@@ -88,7 +87,7 @@
 
   <header>
     <div class="row">
-      <button class="btn" id="btnPicker">🎛️ اختيار تصنيفات جديدة</button>
+      <button class="btn" id="btnPicker">🎛️ لعبة جديدة (اختيار تصنيفات)</button>
       <button class="btn" id="btnResetBoard">♻️ تصفير اللوحة</button>
       <button class="btn btnRed" id="btnHardReset">🧨 تصفير كامل</button>
       <span class="pill">اختصارات: <span class="kbd">A</span> إجابة — <span class="kbd">N</span> سؤال جديد — <span class="kbd">Esc</span> إغلاق — <span class="kbd">T</span> تبديل الدور</span>
@@ -101,7 +100,7 @@
     <div class="row" style="justify-content:space-between">
       <div>
         <h2 style="margin:0 0 6px">اختر تصنيفات اللعبة</h2>
-        <div class="muted">اختر من <b>3</b> إلى <b>6</b> تصنيفات، ثم اضغط “ابدأ”. (آخر اختيار ينحفظ تلقائيًا)</div>
+        <div class="muted">اختر من <b>3</b> إلى <b>6</b> تصنيفات. (آخر اختيار ينحفظ تلقائيًا)</div>
       </div>
       <div class="pill">المختارة: <b id="pickedCount">0</b>/6</div>
     </div>
@@ -139,6 +138,10 @@
     </div>
 
     <div class="selectorGrid" id="pickerList"></div>
+
+    <div class="muted" style="margin-top:12px">
+      ملاحظة: إذا اخترت تصنيف وما عنده أسئلة كفاية، اللعبة تستخدم “ثقافة عامة” كبديل تلقائيًا لنفس مستوى النقاط.
+    </div>
   </div>
 
   <!-- GAME -->
@@ -149,9 +152,7 @@
 
     <div class="card">
       <h3 style="margin:0 0 10px">الفرق + النقاط</h3>
-
       <div class="pill" style="text-align:center;margin-bottom:10px">⏱️ الوقت: <b id="timer">—</b></div>
-
       <div class="teams" id="teamsWrap"></div>
 
       <div class="row" style="margin-top:10px">
@@ -160,7 +161,8 @@
       </div>
 
       <div class="muted" style="margin-top:10px">
-        ✅ كل خانة 200/400/600 تُغلق بعد استخدامها.  
+        ✅ الخانة تُقفل بعد اختيارها.<br>
+        ✅ بعد “خطأ” للفريق الأول، تقدر تسمح للفريق التالي يجاوب ويأخذ نفس النقاط (سرقة).<br>
         ✅ داخل نفس (التصنيف+النقاط) ما يتكرر السؤال إلا بعد ما تخلص كل أسئلته.
       </div>
     </div>
@@ -198,13 +200,19 @@
       <button class="btn btnGreen" id="btnCorrect">صح ✅</button>
       <button class="btn btnRed" id="btnWrong">خطأ ❌</button>
     </div>
+
+    <div class="row" id="stealRow" style="margin-top:10px;display:none;justify-content:space-between">
+      <button class="btn btnOrange" id="btnStealTry">📌 محاولة الفريق التالي (سرقة)</button>
+      <button class="btn" id="btnNoPoints">إغلاق بدون نقاط</button>
+    </div>
   </div>
 </div>
 
+<!-- بنك الأسئلة الخارجي -->
+<script src="./bank.js"></script>
+
 <script>
-/* =========================
-   1) التصنيفات (تقدر تزودها)
-========================= */
+/* ============== إعدادات ============== */
 const ALL_CATEGORIES = [
   "ثقافة عامة","جغرافيا","تاريخ","علوم","تكنولوجيا","كمبيوتر","إنترنت وأمن","هواتف",
   "دين (عام)","القرآن","السيرة","الصحابة","فقه (عام)",
@@ -216,47 +224,11 @@ const ALL_CATEGORIES = [
   "ألغاز","لغة عربية","إنجليزي (عام)"
 ];
 
-/* =========================
-   2) بنك الأسئلة (كبداية)
-   - زيده عشان ما تخلص أيام
-   - كل سؤال لازم cat + pts (200/400/600)
-========================= */
-const BANK = [
-  {cat:"ثقافة عامة",pts:200,q:"كم عدد الكواكب في المجموعة الشمسية؟",a:"8"},
-  {cat:"ثقافة عامة",pts:400,q:"ما هي العملة الرسمية في اليابان؟",a:"الين"},
-  {cat:"ثقافة عامة",pts:600,q:"ما اسم أكبر محيط على الأرض؟",a:"المحيط الهادئ"},
+const BANK = (window.BANK && Array.isArray(window.BANK)) ? window.BANK : [];
 
-  {cat:"دول وعواصم",pts:200,q:"ما عاصمة اليابان؟",a:"طوكيو"},
-  {cat:"دول وعواصم",pts:400,q:"ما عاصمة البرازيل؟",a:"برازيليا"},
-  {cat:"دول وعواصم",pts:600,q:"ما عاصمة نيجيريا؟",a:"أبوجا"},
-
-  {cat:"القرآن",pts:200,q:"كم عدد سور القرآن الكريم؟",a:"114"},
-  {cat:"القرآن",pts:400,q:"كم عدد أجزاء القرآن؟",a:"30"},
-  {cat:"القرآن",pts:600,q:"ما السورة التي تبدأ بـ(تبارك الذي بيده الملك)؟",a:"الملك"},
-
-  {cat:"كرة القدم",pts:200,q:"كم لاعب في فريق كرة القدم داخل الملعب؟",a:"11"},
-  {cat:"كرة القدم",pts:400,q:"ما مدة المباراة الأساسية؟",a:"90 دقيقة"},
-  {cat:"كرة القدم",pts:600,q:"ما معنى VAR؟",a:"حكم الفيديو المساعد"},
-
-  {cat:"تكنولوجيا",pts:200,q:"ما اسم نظام تشغيل آبل للآيفون؟",a:"iOS"},
-  {cat:"تكنولوجيا",pts:400,q:"ما معنى 2FA؟",a:"المصادقة الثنائية"},
-  {cat:"تكنولوجيا",pts:600,q:"ما الفرق بين HTTP و HTTPS؟",a:"HTTPS مشفر بينما HTTP غير مشفر"},
-
-  {cat:"Attack on Titan",pts:200,q:"ما اسم بطل القصة؟",a:"إيرين ييغر"},
-  {cat:"Attack on Titan",pts:400,q:"ما اسم قائد فرقة الاستطلاع لفترة طويلة؟",a:"إيروين سميث"},
-  {cat:"Attack on Titan",pts:600,q:"ما اسم الجدار الخارجي الأكبر؟",a:"Wall Maria"},
-
-  {cat:"ألغاز",pts:200,q:"شيء كلما أخذت منه كبر.. ما هو؟",a:"الحفرة"},
-  {cat:"ألغاز",pts:400,q:"له أسنان ولا يعض.. ما هو؟",a:"المشط"},
-  {cat:"ألغاز",pts:600,q:"يمشي بلا رجلين ويبكي بلا عينين.. ما هو؟",a:"السحاب"},
-];
-
-/* =========================
-   أدوات صغيرة
-========================= */
+/* ============== أدوات ============== */
 const $ = (id)=>document.getElementById(id);
 function key(cat,pts){ return `${cat}|${pts}`; }
-function countForCat(cat){ return BANK.filter(x=>x.cat===cat).length; }
 function beep(type="ok"){
   if($("soundOn").value==="off") return;
   try{
@@ -264,33 +236,39 @@ function beep(type="ok"){
     const o = ctx.createOscillator();
     const g = ctx.createGain();
     o.type="sine";
-    o.frequency.value = (type==="ok"? 700 : 220);
+    o.frequency.value = (type==="ok"? 740 : 220);
     o.connect(g); g.connect(ctx.destination);
     g.gain.value=0.06;
     o.start();
     setTimeout(()=>{ o.stop(); ctx.close(); }, 120);
   }catch(e){}
 }
+function showStealOptions(show){
+  const row = $("stealRow");
+  if(!row) return;
+  row.style.display = show ? "flex" : "none";
+}
+function countForCat(cat){
+  return BANK.filter(x=>x.cat===cat).length;
+}
 
-/* =========================
-   الحالة
-========================= */
+/* ============== الحالة ============== */
 const state = {
   selectedCats: [],
   gameCats: [],
   teamCount: 2,
   turn: 1,
   scores: {},
-  usedCells: new Set(),          // cat|pts
-  usedByCatPts: new Map(),       // cat|pts -> Set(questionIndexesUsed)
-  current: {cat:null, pts:null, idx:null, lockApplied:false},
-  helpsUsed: {},                 // team -> {hint,pass}
-  timer:{id:null,left:0}
+  usedCells: new Set(),
+  usedByCatPts: new Map(),
+  current: {cat:null, pts:null, idx:null},
+  helpsUsed: {},
+  timer:{id:null,left:0},
+  stealMode:false,
+  firstTeamTurn:null
 };
 
-/* =========================
-   3) Picker (اختيار التصنيفات)
-========================= */
+/* ============== حفظ/تحميل تصنيفات ============== */
 function loadSavedCats(){
   try{
     const raw = localStorage.getItem("seenjeem_lastCats");
@@ -304,12 +282,12 @@ function saveCats(arr){
   try{ localStorage.setItem("seenjeem_lastCats", JSON.stringify(arr)); }catch(e){}
 }
 
+/* ============== Picker ============== */
 function buildPicker(){
   const list = $("pickerList");
   list.innerHTML="";
   state.selectedCats = [];
 
-  // حمّل آخر اختيار
   const saved = loadSavedCats();
 
   ALL_CATEGORIES.forEach(cat=>{
@@ -320,7 +298,6 @@ function buildPicker(){
     cb.type="checkbox";
     cb.value=cat;
 
-    // فعّل المحفوظ (بحد 6)
     if(saved.includes(cat) && state.selectedCats.length < 6){
       cb.checked = true;
       state.selectedCats.push(cat);
@@ -350,12 +327,10 @@ function buildPicker(){
 }
 
 function pickRandomCats(){
-  // اختار عدد عشوائي 3-6
   const n = Math.floor(Math.random()*(6-3+1))+3;
   const shuffled = [...ALL_CATEGORIES].sort(()=>Math.random()-0.5);
   const chosen = shuffled.slice(0,n);
 
-  // طبّق على الواجهة
   state.selectedCats = [];
   const cbs = $("pickerList").querySelectorAll("input[type=checkbox]");
   cbs.forEach(cb=>{
@@ -368,9 +343,7 @@ function pickRandomCats(){
   $("pickedCount").textContent = state.selectedCats.length;
 }
 
-/* =========================
-   4) بناء الفرق
-========================= */
+/* ============== Teams ============== */
 function buildTeams(){
   const wrap = $("teamsWrap");
   wrap.innerHTML="";
@@ -404,7 +377,6 @@ function buildTeams(){
     `;
     wrap.appendChild(box);
 
-    // مساعدات
     $("hintBtn_"+t).addEventListener("click", ()=>useHelp("hint", t));
     $("passBtn_"+t).addEventListener("click", ()=>useHelp("pass", t));
   }
@@ -433,9 +405,7 @@ function switchTurn(){
   syncTurnPill();
 }
 
-/* =========================
-   5) بناء اللوحة
-========================= */
+/* ============== Board ============== */
 function buildBoard(){
   const board = $("board");
   board.innerHTML="";
@@ -448,7 +418,7 @@ function buildBoard(){
     c.innerHTML = `
       <div class="catTitle">
         <b>${cat}</b>
-        <span class="muted">${countForCat(cat)} سؤال في البنك</span>
+        <span class="muted">${countForCat(cat)} سؤال</span>
       </div>
       <div class="pointsGrid">
         <div class="pBtn" data-cat="${cat}" data-pts="200">200</div>
@@ -459,7 +429,6 @@ function buildBoard(){
     board.appendChild(c);
   });
 
-  // Events للأزرار
   board.querySelectorAll(".pBtn").forEach(btn=>{
     btn.addEventListener("click", ()=>{
       if(btn.classList.contains("used")) return;
@@ -468,9 +437,7 @@ function buildBoard(){
   });
 }
 
-/* =========================
-   6) اختيار سؤال بدون تكرار
-========================= */
+/* ============== Questions (No repeat per cat+pts) ============== */
 function pickQuestion(cat, pts){
   const pool = BANK.map((x,i)=>({x,i})).filter(o=>o.x.cat===cat && o.x.pts===pts).map(o=>o.i);
   const fallback = BANK.map((x,i)=>({x,i})).filter(o=>o.x.cat==="ثقافة عامة" && o.x.pts===pts).map(o=>o.i);
@@ -485,7 +452,7 @@ function pickQuestion(cat, pts){
 
   let pick = null;
   let guard=0;
-  while(guard<300){
+  while(guard<400){
     const idx = list[Math.floor(Math.random()*list.length)];
     if(!used.has(idx)){ pick=idx; break; }
     guard++;
@@ -495,20 +462,17 @@ function pickQuestion(cat, pts){
   return {idx:pick, qa:BANK[pick]};
 }
 
-/* =========================
-   7) Modal + Timer
-========================= */
-function openModal(){
-  $("modalBack").style.display="flex";
-}
+/* ============== Modal + Timer ============== */
+function openModal(){ $("modalBack").style.display="flex"; }
 function closeModal(){
   stopTimer();
   $("modalBack").style.display="none";
   hideAnswer();
+  showStealOptions(false);
+  state.stealMode=false;
+  state.firstTeamTurn=null;
 }
-function toggleAnswer(){
-  $("answerBox").classList.toggle("show");
-}
+function toggleAnswer(){ $("answerBox").classList.toggle("show"); }
 function hideAnswer(){ $("answerBox").classList.remove("show"); }
 
 function startTimer(){
@@ -533,11 +497,13 @@ function openCell(cat, pts, btnEl){
   const k = key(cat,pts);
   if(state.usedCells.has(k)) return;
 
-  // اقفل الخانة فوراً (مثل ألعاب السين جيم)
   state.usedCells.add(k);
   btnEl.classList.add("used");
 
-  state.current = {cat, pts, idx:null, lockApplied:true};
+  state.current = {cat, pts, idx:null};
+  state.stealMode = false;
+  state.firstTeamTurn = state.turn;
+
   newQuestionSameCell();
   openModal();
 }
@@ -545,58 +511,67 @@ function openCell(cat, pts, btnEl){
 function newQuestionSameCell(){
   const {cat, pts} = state.current;
   const picked = pickQuestion(cat, pts);
-  if(!picked){
-    $("mCat").textContent = `التصنيف: ${cat}`;
-    $("mPts").textContent = `النقاط: ${pts}`;
-    $("mQ").textContent = "مافي أسئلة لهذا المستوى حالياً.";
-    $("mA").textContent = "—";
-    return;
-  }
-  state.current.idx = picked.idx;
 
   $("mCat").textContent = `التصنيف: ${cat}`;
   $("mPts").textContent = `النقاط: ${pts}`;
+
+  if(!picked){
+    $("mQ").textContent = "مافي أسئلة لهذا المستوى حالياً.";
+    $("mA").textContent = "—";
+    $("mMeta").textContent = `دور: ${activeTeamName()}`;
+    return;
+  }
+
+  state.current.idx = picked.idx;
   $("mQ").textContent = picked.qa.q;
   $("mA").textContent = picked.qa.a;
-  $("mMeta").textContent = `دور: ${activeTeamName()}`;
+  $("mMeta").textContent = state.stealMode ? `محاولة سرقة — دور: ${activeTeamName()}` : `دور: ${activeTeamName()}`;
 
   hideAnswer();
+  showStealOptions(false);
   startTimer();
 }
 
-/* =========================
-   8) النتيجة + الدور
-========================= */
+/* ============== Result + Steal logic ============== */
 function applyResult(correct){
   const pts = state.current.pts || 0;
+
   if(correct){
     state.scores[state.turn] += pts;
     $("teamScore_"+state.turn).textContent = state.scores[state.turn];
     beep("ok");
-  }else{
-    beep("bad");
+    closeModal();
+    switchTurn();
+    return;
   }
-  closeModal();
-  switchTurn();
+
+  // خطأ
+  beep("bad");
+
+  // إذا كانت محاولة سرقة: خلاص قفل وبدّل الدور
+  if(state.stealMode){
+    closeModal();
+    switchTurn();
+    return;
+  }
+
+  // أول محاولة غلط: اعرض خيار السرقة
+  showStealOptions(true);
 }
 
-/* =========================
-   9) المساعدات
-========================= */
+/* ============== Helps ============== */
 function useHelp(type, team){
   if(team !== state.turn) return;
   if(state.helpsUsed[team][type]) return;
 
   state.helpsUsed[team][type]=true;
-
   const hintBtn = $("hintBtn_"+team);
   const passBtn = $("passBtn_"+team);
 
   if(type==="hint"){
     if(hintBtn) hintBtn.classList.add("used");
-    // تلميح = أول 3 أحرف من الإجابة
     const a = String($("mA").textContent || "");
-    const h = a.length<=3 ? a : (a.slice(0,3)+"…");
+    const h = a.length<=4 ? a : (a.slice(0,4)+"…");
     $("mMeta").textContent = `تلميح: ${h}`;
   }
   if(type==="pass"){
@@ -606,9 +581,7 @@ function useHelp(type, team){
   syncTurnPill();
 }
 
-/* =========================
-   10) ربط الأزرار
-========================= */
+/* ============== Buttons wiring ============== */
 $("btnRandomCats").addEventListener("click", pickRandomCats);
 
 $("btnStart").addEventListener("click", ()=>{
@@ -621,6 +594,10 @@ $("btnStart").addEventListener("click", ()=>{
   $("pickerCard").style.display="none";
   $("gameArea").style.display="grid";
 
+  if(BANK.length < 30){
+    alert("ملاحظة: بنك الأسئلة صغير/غير محمّل. تأكد إن ملف bank.js موجود ومرفوع صح.");
+  }
+
   buildTeams();
   buildBoard();
 });
@@ -632,38 +609,46 @@ $("btnPicker").addEventListener("click", ()=>{
   buildPicker();
 });
 
-$("btnResetBoard").addEventListener("click", ()=>{
-  // تصفير اللوحة فقط
-  buildBoard();
-});
+$("btnResetBoard").addEventListener("click", buildBoard);
 
 $("btnHardReset").addEventListener("click", ()=>{
-  // تصفير كل شيء
   closeModal();
-  buildPicker();
   $("gameArea").style.display="none";
   $("pickerCard").style.display="block";
   $("timer").textContent="—";
+  buildPicker();
 });
 
-$("btnSwitchTurn").addEventListener("click", ()=>switchTurn());
+$("btnSwitchTurn").addEventListener("click", switchTurn);
+
 $("btnStats").addEventListener("click", ()=>{
-  alert(`عدد الأسئلة في البنك: ${BANK.length}\nتصنيفات البنك: ${new Set(BANK.map(x=>x.cat)).size}\nتصنيفات اللعبة الحالية: ${state.gameCats.length}`);
+  const cats = new Set(BANK.map(x=>x.cat)).size;
+  alert(`عدد الأسئلة في البنك: ${BANK.length}\nعدد تصنيفات البنك: ${cats}\nتصنيفات هذه اللعبة: ${state.gameCats.length}`);
 });
 
-$("btnNewQ").addEventListener("click", ()=>newQuestionSameCell());
-$("btnToggleA").addEventListener("click", ()=>toggleAnswer());
-$("btnClose").addEventListener("click", ()=>closeModal());
+$("btnNewQ").addEventListener("click", newQuestionSameCell);
+$("btnToggleA").addEventListener("click", toggleAnswer);
+$("btnClose").addEventListener("click", closeModal);
 $("btnCorrect").addEventListener("click", ()=>applyResult(true));
 $("btnWrong").addEventListener("click", ()=>applyResult(false));
 
-$("modalBack").addEventListener("click", (e)=>{
-  if(e.target.id==="modalBack") closeModal();
+$("btnStealTry").addEventListener("click", ()=>{
+  // الفريق التالي يحاول يجاوب نفس السؤال
+  switchTurn();
+  state.stealMode = true;
+  showStealOptions(false);
+  $("mMeta").textContent = `محاولة سرقة — دور: ${activeTeamName()}`;
+  hideAnswer();
+  startTimer(); // وقت جديد لمحاولة السرقة
 });
 
-$("teamCount").addEventListener("change", ()=>{
-  // لو غيرت عدد الفرق قبل البدء ما في مشكلة.
-  // بعد البدء: الأفضل ترجع للـ Picker وتبدأ من جديد.
+$("btnNoPoints").addEventListener("click", ()=>{
+  closeModal();
+  switchTurn();
+});
+
+$("modalBack").addEventListener("click", (e)=>{
+  if(e.target.id==="modalBack") closeModal();
 });
 
 /* اختصارات */
@@ -677,40 +662,8 @@ document.addEventListener("keydown",(e)=>{
   }
 });
 
-/* =========================
-   INIT
-========================= */
+/* INIT */
 buildPicker();
-
-// IMPORTANT: لازم نربط selectedCats مع تغييرات الـ checkboxes
-// نعمل Observer بسيط بعد بناء الـ picker:
-function wirePickerSelection(){
-  state.selectedCats = [];
-  const cbs = $("pickerList").querySelectorAll("input[type=checkbox]");
-  cbs.forEach(cb=>{
-    if(cb.checked) state.selectedCats.push(cb.value);
-    cb.addEventListener("change", ()=>{
-      if(cb.checked){
-        if(state.selectedCats.length >= 6){
-          cb.checked=false; alert("الحد الأقصى 6 تصنيفات"); return;
-        }
-        if(!state.selectedCats.includes(cb.value)) state.selectedCats.push(cb.value);
-      }else{
-        state.selectedCats = state.selectedCats.filter(x=>x!==cb.value);
-      }
-      $("pickedCount").textContent = state.selectedCats.length;
-    });
-  });
-  $("pickedCount").textContent = state.selectedCats.length;
-}
-wirePickerSelection();
-
-// بعد buildPicker نحتاج نعيد wire
-const _origBuildPicker = buildPicker;
-buildPicker = function(){
-  _origBuildPicker();
-  wirePickerSelection();
-};
 </script>
 </body>
 </html>
