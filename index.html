@@ -225,7 +225,7 @@ const ALL_CATEGORIES = [
 ];
 
 const BANK = (window.BANK && Array.isArray(window.BANK)) ? window.BANK : [];
-
+alert("window.BANK موجود؟ " + (Array.isArray(window.BANK)) + "\nعدد الأسئلة: " + BANK.length);
 /* ============== أدوات ============== */
 const $ = (id)=>document.getElementById(id);
 function key(cat,pts){ return `${cat}|${pts}`; }
